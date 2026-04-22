@@ -1,0 +1,205 @@
+{
+  "algorithm": "random_forest",
+  "results": [
+    {
+      "n_estimators": 10,
+      "max_depth": 2,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 10,
+      "max_depth": 5,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 10,
+      "max_depth": 10,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 10,
+      "max_depth": 20,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 10,
+      "max_depth": null,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 2,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 5,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 10,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": 20,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 50,
+      "max_depth": null,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 2,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 5,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 10,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": 20,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 100,
+      "max_depth": null,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 2,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 5,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 10,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": 20,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 200,
+      "max_depth": null,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 300,
+      "max_depth": 2,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 300,
+      "max_depth": 5,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 300,
+      "max_depth": 10,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 300,
+      "max_depth": 20,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    },
+    {
+      "n_estimators": 300,
+      "max_depth": null,
+      "train_score": 1.0,
+      "test_score": 0.9091,
+      "bias": 0.0909,
+      "variance": 0.0909
+    }
+  ]
+}

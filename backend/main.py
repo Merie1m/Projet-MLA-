@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -485,9 +485,9 @@ def mlflow_runs(experiment_name: str = "ML_Platform_Experiments", max_results: i
 
 @app.post("/api/bias-variance-analysis")
 def bias_variance_analysis_endpoint(
-    dataset_id: str,
-    target_column: str,
-    algorithm: str = "random_forest",
+    dataset_id: str = Query(...),
+    target_column: str = Query(...),
+    algorithm: str = Query("random_forest"),
 ):
     """Analyze bias-variance tradeoff for a given algorithm and dataset."""
     from ml_engine import analyze_bias_variance, _is_regression, prepare_data
@@ -515,9 +515,9 @@ def bias_variance_analysis_endpoint(
 
 @app.post("/api/stability-analysis")
 def stability_analysis_endpoint(
-    dataset_id: str,
-    target_column: str,
-    algorithm: str = "random_forest",
+    dataset_id: str = Query(...),
+    target_column: str = Query(...),
+    algorithm: str = Query("random_forest"),
 ):
     """Analyze model stability across different random_state values."""
     from ml_engine import analyze_stability, _is_regression, prepare_data

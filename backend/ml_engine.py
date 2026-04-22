@@ -513,7 +513,6 @@ def analyze_bias_variance(
             print("✓ MLflow params logged")
         except Exception as e:
             print(f"Error starting MLflow run: {e}")
-            HAS_MLFLOW = False
     
     n_estimators_values = [10, 50, 100, 200, 300]
     max_depth_values = [2, 5, 10, 20, None]
@@ -654,7 +653,6 @@ def analyze_stability(
             print("✓ MLflow params logged")
         except Exception as e:
             print(f"Error starting MLflow run: {e}")
-            HAS_MLFLOW = False
     
     random_states = [0, 42, 123, 456, 789]
     results = []
