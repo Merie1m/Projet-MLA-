@@ -7,6 +7,7 @@ import {
 import {
   Dashboard, Storage, Psychology, ModelTraining, Assessment, History,
   Menu as MenuIcon, ChevronLeft, Notifications, HelpOutline, DarkMode,
+  TrendingUp,
 } from '@mui/icons-material';
 import useStore from '../store/useStore';
 
@@ -18,6 +19,7 @@ const NAV = [
   { label: 'Entraînement', icon: <ModelTraining />, path: '/training' },
   { label: 'Résultats', icon: <Assessment />, path: '/results' },
   { label: 'MLOps', icon: <History />, path: '/mlops' },
+  { label: 'Expérimentations', icon: <TrendingUp />, path: '/experiments' },
 ];
 
 export default function Layout() {

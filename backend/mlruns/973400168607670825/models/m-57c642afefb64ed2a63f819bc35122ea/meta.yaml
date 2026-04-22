@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/merie/Desktop/projet_ml_front/backend/mlruns/973400168607670825/models/m-57c642afefb64ed2a63f819bc35122ea/artifacts
+creation_timestamp: 1776861039018
+experiment_id: '973400168607670825'
+last_updated_timestamp: 1776861044559
+model_id: m-57c642afefb64ed2a63f819bc35122ea
+model_type: null
+name: model_random_forest
+source_run_id: c864dcbfc3654406af63b2673d050bce
+status: 2
+status_message: null

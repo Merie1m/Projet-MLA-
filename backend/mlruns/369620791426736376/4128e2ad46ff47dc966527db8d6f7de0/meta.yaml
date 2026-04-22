@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/merie/Desktop/projet_ml_front/backend/mlruns/369620791426736376/4128e2ad46ff47dc966527db8d6f7de0/artifacts
+end_time: 1776863836741
+entry_point_name: ''
+experiment_id: '369620791426736376'
+lifecycle_stage: active
+run_id: 4128e2ad46ff47dc966527db8d6f7de0
+run_name: bias_variance_random_forest
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776863831675
+status: 3
+tags: []
+user_id: merie

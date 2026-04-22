@@ -7,6 +7,7 @@ import ModelsPage from './pages/ModelsPage';
 import TrainingPage from './pages/TrainingPage';
 import ResultsPage from './pages/ResultsPage';
 import MLOpsPage from './pages/MLOpsPage';
+import ExperimentsPage from './pages/ExperimentsPage';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="training" element={<TrainingPage />} />
         <Route path="results" element={<ResultsPage />} />
         <Route path="mlops" element={<MLOpsPage />} />
+        <Route path="experiments" element={<ExperimentsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

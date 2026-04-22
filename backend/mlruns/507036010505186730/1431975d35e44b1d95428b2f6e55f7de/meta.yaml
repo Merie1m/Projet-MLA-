@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/merie/Desktop/projet_ml_front/backend/mlruns/507036010505186730/1431975d35e44b1d95428b2f6e55f7de/artifacts
+end_time: 1776864140305
+entry_point_name: ''
+experiment_id: '507036010505186730'
+lifecycle_stage: active
+run_id: 1431975d35e44b1d95428b2f6e55f7de
+run_name: stability_random_forest
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776864139093
+status: 3
+tags: []
+user_id: merie

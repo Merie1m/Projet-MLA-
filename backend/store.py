@@ -39,7 +39,9 @@ class TrainedModel:
     artifact_path: str | None = None   # path to saved .joblib file
     problem_type: str = "classification"  # "classification" or "regression"
     mlflow_run_id: str | None = None
-    residuals: list[dict] = field(default_factory=list)
+    residuals: list[dict] = field(default_factory=list)  # regression residuals
+    feature_importances: list[dict] = field(default_factory=list)  # [{name, importance}]
+    error_analysis: list[dict] = field(default_factory=list)  # misclassified examples
 
 
 @dataclass

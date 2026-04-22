@@ -38,7 +38,7 @@ from sklearn.metrics import (
     mean_absolute_error, mean_squared_error, r2_score,
 )
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, label_binarize
 
 # ── Dimensionality reduction
 from sklearn.decomposition import PCA
@@ -61,8 +61,9 @@ try:
     import mlflow
     import mlflow.sklearn
     HAS_MLFLOW = True
-    # Configure local tracking directory
-    mlflow.set_tracking_uri(os.path.join(os.path.dirname(__file__), "mlruns"))
+    # Configure local tracking directory with file:// URI
+    mlflow_dir = os.path.join(os.path.dirname(__file__), "mlruns").replace("\\", "/")
+    mlflow.set_tracking_uri(f"file:///{mlflow_dir}")
 except ImportError:
     HAS_MLFLOW = False
 
@@ -317,28 +318,105 @@ def evaluate_model(model: Any, X_test: np.ndarray, y_test: np.ndarray) -> dict:
     # Confusion matrix
     cm = confusion_matrix(y_test, y_pred).tolist()
 
-    # ROC curve data (binary)
-    roc_data = []
-    if is_binary and y_proba is not None:
-        proba_pos = y_proba[:, 1] if y_proba.ndim == 2 else y_proba
-        fpr, tpr, _ = roc_curve(y_test, proba_pos)
-        roc_data = [{"fpr": float(round(f, 4)), "tpr": float(round(t, 4))} for f, t in zip(fpr, tpr)]
+    # ROC curve data (binary and multiclass One-vs-Rest)
+    roc_data = {}
+    if y_proba is not None:
+        if is_binary:
+            # Binary: single curve for class 1
+            proba_pos = y_proba[:, 1] if y_proba.ndim == 2 else y_proba
+            fpr, tpr, _ = roc_curve(y_test, proba_pos)
+            roc_data["class_1"] = [{"fpr": float(round(f, 4)), "tpr": float(round(t, 4))} for f, t in zip(fpr, tpr)]
+        else:
+            # Multiclass One-vs-Rest: curve per class
+            y_test_bin = label_binarize(y_test, classes=sorted(set(y_test)))
+            for class_idx in range(n_classes):
+                if y_proba.ndim == 2 and y_proba.shape[1] > class_idx:
+                    proba = y_proba[:, class_idx]
+                    fpr, tpr, _ = roc_curve(y_test_bin[:, class_idx], proba)
+                    roc_data[f"class_{class_idx}"] = [
+                        {"fpr": float(round(f, 4)), "tpr": float(round(t, 4))} 
+                        for f, t in zip(fpr, tpr)
+                    ]
 
-    # PR curve data (binary)
-    pr_data = []
-    if is_binary and y_proba is not None:
-        proba_pos = y_proba[:, 1] if y_proba.ndim == 2 else y_proba
-        prec_arr, rec_arr, _ = precision_recall_curve(y_test, proba_pos)
-        pr_data = [
-            {"recall": float(round(r, 4)), "precision": float(round(p, 4))}
-            for r, p in zip(rec_arr, prec_arr)
-        ]
+    # PR curve data (binary and multiclass One-vs-Rest)
+    pr_data = {}
+    if y_proba is not None:
+        if is_binary:
+            # Binary: single curve for class 1
+            proba_pos = y_proba[:, 1] if y_proba.ndim == 2 else y_proba
+            prec_arr, rec_arr, _ = precision_recall_curve(y_test, proba_pos)
+            pr_data["class_1"] = [
+                {"recall": float(round(r, 4)), "precision": float(round(p, 4))}
+                for r, p in zip(rec_arr, prec_arr)
+            ]
+        else:
+            # Multiclass One-vs-Rest: curve per class
+            y_test_bin = label_binarize(y_test, classes=sorted(set(y_test)))
+            for class_idx in range(n_classes):
+                if y_proba.ndim == 2 and y_proba.shape[1] > class_idx:
+                    proba = y_proba[:, class_idx]
+                    prec_arr, rec_arr, _ = precision_recall_curve(y_test_bin[:, class_idx], proba)
+                    pr_data[f"class_{class_idx}"] = [
+                        {"recall": float(round(r, 4)), "precision": float(round(p, 4))}
+                        for r, p in zip(rec_arr, prec_arr)
+                    ]
+
+    # Feature importances (for tree-based and other models that support it)
+    feature_importances = []
+    if hasattr(model, "feature_importances_"):
+        try:
+            importances = model.feature_importances_
+            feature_names = getattr(model, "feature_names_in_", None)
+            if feature_names is not None:
+                feature_names = feature_names.tolist() if hasattr(feature_names, "tolist") else list(feature_names)
+            else:
+                feature_names = [f"Feature {i}" for i in range(len(importances))]
+            
+            # Normalize to percentages and sort
+            total = importances.sum()
+            if total > 0:
+                importances = (importances / total * 100).tolist()
+            else:
+                importances = importances.tolist()
+            
+            feature_importances = [
+                {"name": str(name), "importance": float(round(imp, 2))}
+                for name, imp in sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True)
+            ]
+        except Exception:
+            pass
+
+    # Error analysis: collect misclassified examples
+    error_analysis = []
+    misclassified_indices = np.where(y_pred != y_test)[0]
+    if len(misclassified_indices) > 0 and y_proba is not None:
+        # Sort by confidence (max probability) and take top 5 misclassified
+        confidences = y_proba[misclassified_indices].max(axis=1) if y_proba.ndim == 2 else y_proba[misclassified_indices]
+        sorted_idx = np.argsort(confidences)[::-1][:5]  # Top 5 by confidence
+        
+        for i, idx in enumerate(sorted_idx):
+            actual_idx = misclassified_indices[idx]
+            actual_class = str(y_test[actual_idx])
+            predicted_class = str(y_pred[actual_idx])
+            confidence = float(round(confidences[idx], 4))
+            
+            # Get feature values (as dict of feature indices and values)
+            features = {f"feat_{j}": float(round(X_test[actual_idx, j], 4)) for j in range(X_test.shape[1])}
+            
+            error_analysis.append({
+                "actual_class": actual_class,
+                "predicted_class": predicted_class,
+                "confidence": confidence,
+                "features": features,
+            })
 
     return {
         "metrics": metrics,
         "confusion": cm,
         "roc": roc_data,
         "pr": pr_data,
+        "feature_importances": feature_importances,
+        "error_analysis": error_analysis,
     }
 
 
@@ -358,12 +436,324 @@ def evaluate_model_regression(model: Any, X_test: np.ndarray, y_test: np.ndarray
         for i in indices
     ]
 
+    # Feature importances (for tree-based and other models that support it)
+    feature_importances = []
+    if hasattr(model, "feature_importances_"):
+        try:
+            importances = model.feature_importances_
+            feature_names = getattr(model, "feature_names_in_", None)
+            if feature_names is not None:
+                feature_names = feature_names.tolist() if hasattr(feature_names, "tolist") else list(feature_names)
+            else:
+                feature_names = [f"Feature {i}" for i in range(len(importances))]
+            
+            # Normalize to percentages and sort
+            total = importances.sum()
+            if total > 0:
+                importances = (importances / total * 100).tolist()
+            else:
+                importances = importances.tolist()
+            
+            feature_importances = [
+                {"name": str(name), "importance": float(round(imp, 2))}
+                for name, imp in sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True)
+            ]
+        except Exception:
+            pass
+
     return {
         "metrics": {"mae": mae, "mse": mse, "rmse": rmse, "r2": r2},
         "confusion": [],
         "roc": [],
         "pr": [],
         "residuals": residuals,
+        "feature_importances": feature_importances,
+    }
+
+
+def analyze_bias_variance(
+    X_train: np.ndarray,
+    X_test: np.ndarray,
+    y_train: np.ndarray,
+    y_test: np.ndarray,
+    algorithm: str,
+    regression: bool = False,
+    dataset_id: str = None,
+    target_column: str = None,
+) -> dict:
+    """Analyze bias-variance tradeoff by testing multiple hyperparameter combinations.
+    
+    For classification: tests RandomForest and DecisionTree with various n_estimators and max_depth.
+    Returns train/test accuracies and computed bias/variance metrics.
+    Logs analysis to MLflow when available.
+    """
+    
+    # Start MLflow run for this analysis
+    mlflow_run_id = None
+    if HAS_MLFLOW:
+        try:
+            mlflow.set_experiment("Bias-Variance Analysis")
+            print("✓ MLflow experiment set")
+        except Exception as e:
+            print(f"Error setting experiment: {e}")
+        
+        try:
+            run = mlflow.start_run(run_name=f"bias_variance_{algorithm}")
+            mlflow_run_id = run.info.run_id
+            print(f"✓ MLflow run started: {mlflow_run_id}")
+            
+            # Log parameters
+            mlflow.log_param("algorithm", algorithm)
+            mlflow.log_param("analysis_type", "bias_variance")
+            if dataset_id:
+                mlflow.log_param("dataset_id", dataset_id)
+            if target_column:
+                mlflow.log_param("target_column", target_column)
+            mlflow.log_param("problem_type", "regression" if regression else "classification")
+            print("✓ MLflow params logged")
+        except Exception as e:
+            print(f"Error starting MLflow run: {e}")
+            HAS_MLFLOW = False
+    
+    n_estimators_values = [10, 50, 100, 200, 300]
+    max_depth_values = [2, 5, 10, 20, None]
+    
+    results = []
+    all_biases = []
+    all_variances = []
+    all_test_scores = []
+    
+    for n_est in n_estimators_values:
+        for max_d in max_depth_values:
+            try:
+                if algorithm == "random_forest":
+                    model = RandomForestClassifier(
+                        n_estimators=n_est,
+                        max_depth=max_d,
+                        random_state=42,
+                    )
+                elif algorithm == "rf_regression":
+                    model = RandomForestRegressor(
+                        n_estimators=n_est,
+                        max_depth=max_d,
+                        random_state=42,
+                    )
+                elif algorithm == "decision_tree":
+                    from sklearn.tree import DecisionTreeClassifier
+                    model = DecisionTreeClassifier(max_depth=max_d, random_state=42)
+                else:
+                    continue
+                
+                model.fit(X_train, y_train)
+                
+                if regression:
+                    train_score = float(round(model.score(X_train, y_train), 4))
+                    test_score = float(round(model.score(X_test, y_test), 4))
+                else:
+                    train_score = float(round(accuracy_score(y_train, model.predict(X_train)), 4))
+                    test_score = float(round(accuracy_score(y_test, model.predict(X_test)), 4))
+                
+                # Bias = 1 - test_score (error from optimal performance)
+                # Variance = train_score - test_score (overfitting amount)
+                bias = float(round(1.0 - test_score, 4))
+                variance = float(round(train_score - test_score, 4))
+                
+                results.append({
+                    "n_estimators": n_est if algorithm != "decision_tree" else None,
+                    "max_depth": max_d,
+                    "train_score": train_score,
+                    "test_score": test_score,
+                    "bias": bias,
+                    "variance": variance,
+                })
+                
+                all_biases.append(bias)
+                all_variances.append(variance)
+                all_test_scores.append(test_score)
+            except Exception as e:
+                print(f"Error testing {algorithm} with n_est={n_est}, max_d={max_d}: {e}")
+                continue
+    
+    # Log summary statistics to MLflow
+    if HAS_MLFLOW and all_test_scores:
+        try:
+            mlflow.log_metric("mean_bias", float(np.mean(all_biases)))
+            mlflow.log_metric("std_bias", float(np.std(all_biases)))
+            mlflow.log_metric("mean_variance", float(np.mean(all_variances)))
+            mlflow.log_metric("std_variance", float(np.std(all_variances)))
+            mlflow.log_metric("mean_test_score", float(np.mean(all_test_scores)))
+            mlflow.log_metric("best_test_score", float(np.max(all_test_scores)))
+            print(f"✓ Logged {len(all_test_scores)} metrics to MLflow")
+            
+            # Log full results as artifact
+            import json
+            import tempfile
+            results_json = json.dumps({"algorithm": algorithm, "results": results}, indent=2)
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(results_json)
+                f.flush()
+                mlflow.log_artifact(f.name, artifact_path="analysis_results")
+                print(f"✓ Logged artifact to MLflow")
+            
+            mlflow.end_run()
+            print(f"✓ MLflow run closed successfully")
+        except Exception as e:
+            print(f"Error logging to MLflow: {e}")
+            try:
+                mlflow.end_run()
+            except:
+                pass
+    
+    return {
+        "algorithm": algorithm,
+        "results": results,
+        "mlflow_run_id": mlflow_run_id,
+    }
+
+
+def analyze_stability(
+    X_train: np.ndarray,
+    X_test: np.ndarray,
+    y_train: np.ndarray,
+    y_test: np.ndarray,
+    algorithm: str,
+    regression: bool = False,
+    dataset_id: str = None,
+    target_column: str = None,
+) -> dict:
+    """Test model stability across multiple random_state values.
+    
+    Trains the same model with different random_state values and computes
+    statistics (mean, std, min, max) for key metrics.
+    Logs analysis to MLflow when available.
+    """
+    
+    # Start MLflow run for this analysis
+    mlflow_run_id = None
+    if HAS_MLFLOW:
+        try:
+            mlflow.set_experiment("Stability Analysis")
+            print("✓ MLflow experiment set")
+        except Exception as e:
+            print(f"Error setting experiment: {e}")
+        
+        try:
+            run = mlflow.start_run(run_name=f"stability_{algorithm}")
+            mlflow_run_id = run.info.run_id
+            print(f"✓ MLflow run started: {mlflow_run_id}")
+            
+            # Log parameters
+            mlflow.log_param("algorithm", algorithm)
+            mlflow.log_param("analysis_type", "stability")
+            if dataset_id:
+                mlflow.log_param("dataset_id", dataset_id)
+            if target_column:
+                mlflow.log_param("target_column", target_column)
+            mlflow.log_param("problem_type", "regression" if regression else "classification")
+            mlflow.log_param("random_states", "[0, 42, 123, 456, 789]")
+            print("✓ MLflow params logged")
+        except Exception as e:
+            print(f"Error starting MLflow run: {e}")
+            HAS_MLFLOW = False
+    
+    random_states = [0, 42, 123, 456, 789]
+    results = []
+    metrics_history = {}
+    
+    for rs in random_states:
+        try:
+            if algorithm == "random_forest":
+                model = RandomForestClassifier(n_estimators=100, random_state=rs)
+            elif algorithm == "rf_regression":
+                model = RandomForestRegressor(n_estimators=100, random_state=rs)
+            elif algorithm == "decision_tree":
+                from sklearn.tree import DecisionTreeClassifier
+                model = DecisionTreeClassifier(random_state=rs)
+            else:
+                continue
+            
+            model.fit(X_train, y_train)
+            
+            if regression:
+                train_score = float(round(model.score(X_train, y_train), 4))
+                test_score = float(round(model.score(X_test, y_test), 4))
+                y_pred = model.predict(X_test)
+                mae = float(round(mean_absolute_error(y_test, y_pred), 4))
+                metrics = {"r2": test_score, "mae": mae}
+            else:
+                train_score = float(round(accuracy_score(y_train, model.predict(X_train)), 4))
+                test_score = float(round(accuracy_score(y_test, model.predict(X_test)), 4))
+                y_pred = model.predict(X_test)
+                precision = float(round(precision_score(y_test, y_pred, average="weighted", zero_division=0), 4))
+                recall = float(round(recall_score(y_test, y_pred, average="weighted", zero_division=0), 4))
+                f1 = float(round(f1_score(y_test, y_pred, average="weighted", zero_division=0), 4))
+                metrics = {"accuracy": test_score, "precision": precision, "recall": recall, "f1": f1}
+            
+            results.append({
+                "random_state": rs,
+                "train_score": train_score,
+                "test_score": test_score,
+                **metrics,
+            })
+            
+            # Track metrics for statistics
+            for metric_name, metric_value in metrics.items():
+                if metric_name not in metrics_history:
+                    metrics_history[metric_name] = []
+                metrics_history[metric_name].append(metric_value)
+        except Exception as e:
+            print(f"Error testing {algorithm} with random_state={rs}: {e}")
+            continue
+    
+    # Compute statistics
+    statistics = {}
+    for metric_name, values in metrics_history.items():
+        if values:
+            statistics[metric_name] = {
+                "mean": float(round(np.mean(values), 4)),
+                "std": float(round(np.std(values), 4)),
+                "min": float(round(np.min(values), 4)),
+                "max": float(round(np.max(values), 4)),
+            }
+    
+    # Log summary statistics to MLflow
+    if HAS_MLFLOW:
+        try:
+            for metric_name, stats in statistics.items():
+                mlflow.log_metric(f"{metric_name}_mean", stats["mean"])
+                mlflow.log_metric(f"{metric_name}_std", stats["std"])
+                mlflow.log_metric(f"{metric_name}_min", stats["min"])
+                mlflow.log_metric(f"{metric_name}_max", stats["max"])
+            print(f"✓ Logged {len(statistics) * 4} metrics to MLflow")
+            
+            # Log full results as artifact
+            import json
+            import tempfile
+            results_json = json.dumps({
+                "algorithm": algorithm,
+                "results": results,
+                "statistics": statistics
+            }, indent=2)
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(results_json)
+                f.flush()
+                mlflow.log_artifact(f.name, artifact_path="analysis_results")
+                print(f"✓ Logged artifact to MLflow")
+            
+            mlflow.end_run()
+            print(f"✓ MLflow run closed successfully")
+        except Exception as e:
+            print(f"Error logging to MLflow: {e}")
+            try:
+                mlflow.end_run()
+            except:
+                pass
+    
+    return {
+        "algorithm": algorithm,
+        "results": results,
+        "statistics": statistics,
+        "mlflow_run_id": mlflow_run_id,
     }
 
 
@@ -473,6 +863,8 @@ def train_model(
             problem_type="regression" if regression else "classification",
             mlflow_run_id=mlflow_run_id,
             residuals=eval_result.get("residuals", []),
+            feature_importances=eval_result.get("feature_importances", []),
+            error_analysis=eval_result.get("error_analysis", []),
         )
         store.save_model(trained_model)
 
@@ -498,10 +890,14 @@ def train_model(
             "roc": eval_result["roc"],
             "pr": eval_result["pr"],
             "residuals": eval_result.get("residuals", []),
+            "featureImportances": eval_result.get("feature_importances", []),
+            "errorAnalysis": eval_result.get("error_analysis", []),
             "trainedAt": trained_model.trained_at,
             "duration": duration,
             "problemType": "regression" if regression else "classification",
             "mlflowRunId": mlflow_run_id,
+            "datasetId": dataset_id,
+            "targetColumn": target_column,
         }
 
         store.update_job(job_id, status="completed", progress=100.0, step=4, result=result)

@@ -64,6 +64,13 @@ const useStore = create((set, get) => ({
   addTrainingResult: (result) => set({ trainingResults: [...get().trainingResults, result] }),
   clearResults: () => set({ trainingResults: [] }),
 
+  // ── Analysis Results ───────────────────────────────────────────────────────
+  biasVarianceData: [],
+  stabilityData: { results: [], statistics: {} },
+  setBiasVarianceData: (data) => set({ biasVarianceData: data }),
+  setStabilityData: (data) => set({ stabilityData: data }),
+  clearAnalysisData: () => set({ biasVarianceData: [], stabilityData: { results: [], statistics: {} } }),
+
   // ── MLOps ──────────────────────────────────────────────────────────────────
   experiments: [],
   setExperiments: (e) => set({ experiments: e }),

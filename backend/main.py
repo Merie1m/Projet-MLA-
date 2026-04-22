@@ -483,6 +483,124 @@ def mlflow_runs(experiment_name: str = "ML_Platform_Experiments", max_results: i
         return {"runs": [], "error": str(e)}
 
 
+@app.post("/api/bias-variance-analysis")
+def bias_variance_analysis_endpoint(
+    dataset_id: str,
+    target_column: str,
+    algorithm: str = "random_forest",
+):
+    """Analyze bias-variance tradeoff for a given algorithm and dataset."""
+    from ml_engine import analyze_bias_variance, _is_regression, prepare_data
+    
+    try:
+        ds = store.get_dataset(dataset_id)
+        if ds is None:
+            raise ValueError(f"Dataset {dataset_id} not found")
+        
+        df = pd.DataFrame(ds.rows)
+        regression = _is_regression(algorithm)
+        
+        X_train, X_test, y_train, y_test, _, _ = prepare_data(
+            df, target_column, regression=regression
+        )
+        
+        analysis_result = analyze_bias_variance(
+            X_train, X_test, y_train, y_test, algorithm, regression,
+            dataset_id=dataset_id, target_column=target_column
+        )
+        return analysis_result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/stability-analysis")
+def stability_analysis_endpoint(
+    dataset_id: str,
+    target_column: str,
+    algorithm: str = "random_forest",
+):
+    """Analyze model stability across different random_state values."""
+    from ml_engine import analyze_stability, _is_regression, prepare_data
+    
+    try:
+        ds = store.get_dataset(dataset_id)
+        if ds is None:
+            raise ValueError(f"Dataset {dataset_id} not found")
+        
+        df = pd.DataFrame(ds.rows)
+        regression = _is_regression(algorithm)
+        
+        X_train, X_test, y_train, y_test, _, _ = prepare_data(
+            df, target_column, regression=regression
+        )
+        
+        analysis_result = analyze_stability(
+            X_train, X_test, y_train, y_test, algorithm, regression,
+            dataset_id=dataset_id, target_column=target_column
+        )
+        return analysis_result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MLFLOW ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/mlflow/experiments")
+def get_mlflow_experiments():
+    """Retrieve all MLflow experiments with their runs and metrics."""
+    try:
+        from ml_engine import HAS_MLFLOW
+        
+        if not HAS_MLFLOW:
+            return {"experiments": []}
+        
+        import mlflow
+        
+        experiments = mlflow.search_experiments(order_by=["last_update_time DESC"])
+        result = []
+        
+        for exp in experiments:
+            try:
+                # Search runs for this experiment
+                runs = mlflow.search_runs(
+                    experiment_ids=[str(exp.experiment_id)],
+                    order_by=["start_time DESC"]
+                )
+                runs_data = []
+                
+                for run in runs:
+                    try:
+                        run_info = {
+                            "run_id": run.info.run_id,
+                            "status": run.info.status,
+                            "start_time": run.info.start_time,
+                            "end_time": run.info.end_time,
+                            "tags": dict(run.data.tags) if run.data.tags else {},
+                            "metrics": {k: round(float(v), 4) for k, v in run.data.metrics.items()} if run.data.metrics else {},
+                            "params": dict(run.data.params) if run.data.params else {},
+                        }
+                        runs_data.append(run_info)
+                    except Exception as run_err:
+                        print(f"Error processing run: {run_err}")
+                        continue
+                
+                result.append({
+                    "experiment_id": str(exp.experiment_id),
+                    "name": exp.name,
+                    "runs": runs_data,
+                })
+            except Exception as exp_err:
+                print(f"Error processing experiment {exp.name}: {exp_err}")
+                continue
+        
+        return {"experiments": result}
+    except Exception as e:
+        print(f"MLflow experiments error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ─── Health check ─────────────────────────────────────────────────────────────
 
 
